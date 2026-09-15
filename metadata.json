@@ -1,0 +1,6 @@
+{
+  "name": "Calculadora de Propinas",
+  "description": "Aplicación para calcular y distribuir propinas en restaurantes, con autenticación, gestión de garzones, historial, estadísticas y respaldo.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
