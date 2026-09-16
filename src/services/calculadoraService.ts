@@ -198,6 +198,15 @@ export class CalculadoraPropinaService {
     porcentajeCocina: number,
     porcentajesGarzones: Record<string, number>
   ) {
+    if (!Number.isFinite(montoTotal)) {
+      throw new ValoresNegativosError('El monto total debe ser un número finito');
+    }
+    if (!Number.isFinite(porcentajeTransbank)) {
+      throw new PorcentajesInvalidosError('El porcentaje de Transbank debe ser un número finito');
+    }
+    if (!Number.isFinite(porcentajeCocina)) {
+      throw new PorcentajesInvalidosError('El porcentaje de Cocina debe ser un número finito');
+    }
     if (montoTotal <= 0) {
       throw new ValoresNegativosError('El monto total debe ser mayor a 0');
     }
@@ -225,6 +234,9 @@ export class CalculadoraPropinaService {
     for (const [nombre, porcentaje] of entries) {
       if (!nombre || nombre.trim() === '') {
         throw new Error('Los nombres de los garzones no pueden estar vacíos');
+      }
+      if (!Number.isFinite(porcentaje)) {
+        throw new PorcentajesInvalidosError(`El porcentaje para ${nombre} debe ser un número finito`);
       }
       if (porcentaje < 0) {
         throw new ValoresNegativosError(`El porcentaje para ${nombre} no puede ser negativo`);

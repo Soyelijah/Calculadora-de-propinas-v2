@@ -5,7 +5,7 @@
   "password": "Contraseña",
   "login_button": "Iniciar Sesión",
   "invalid_credentials": "Credenciales inválidas",
-  "please_enter_credentials": "Por favor ingrese usuario y contraseña",
+  "please_enter_credentials": "Por favor, ingrese usuario y contraseña",
   "test_users": "Usuarios de prueba:",
   "admin_user": "admin / admin123 (Administrador)",
   "waiter_users": "ana / ana123 (Garzón), luis / luis123 (Garzón)",

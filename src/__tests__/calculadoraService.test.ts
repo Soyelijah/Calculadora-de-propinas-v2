@@ -56,6 +56,35 @@ describe('CalculadoraPropinaService', () => {
       ).toThrow('Debe haber al menos un garzón configurado');
     });
 
+    it.each([
+      ['monto total', { montoTotal: Number.NaN }, 'El monto total debe ser un número finito'],
+      [
+        'porcentaje de Transbank',
+        { porcentajeTransbank: Number.POSITIVE_INFINITY },
+        'El porcentaje de Transbank debe ser un número finito',
+      ],
+      [
+        'porcentaje de Cocina',
+        { porcentajeCocina: Number.NaN },
+        'El porcentaje de Cocina debe ser un número finito',
+      ],
+      [
+        'porcentaje de un garzón',
+        { porcentajesGarzones: { Ana: Number.NEGATIVE_INFINITY } },
+        'El porcentaje para Ana debe ser un número finito',
+      ],
+    ])('debe rechazar un valor no finito en %s', (_campo, cambios, mensaje) => {
+      expect(() =>
+        calc.calcular({
+          montoTotal: 100000,
+          porcentajeTransbank: 3.5,
+          porcentajeCocina: 10,
+          porcentajesGarzones: { Ana: 50 },
+          ...cambios,
+        })
+      ).toThrow(mensaje);
+    });
+
     it('debe rechazar si Transbank + Cocina supera el 100%', () => {
       expect(() =>
         calc.calcular({

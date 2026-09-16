@@ -14,7 +14,7 @@
 
 ## Descripción General
 
-La aplicación "Calculadora de Propinas" es una solución móvil desarrollada en Flutter que permite a restaurantes calcular y distribuir propinas entre el personal de manera justa y transparente. La aplicación considera porcentajes configurables para Transbank, cocina y garzones individuales.
+La aplicación "Calculadora de Propinas" es una solución web desarrollada con React y TypeScript que permite a restaurantes calcular y distribuir propinas entre el personal de manera justa y transparente. La aplicación considera porcentajes configurables para Transbank, cocina y garzones individuales.
 
 ### Características Principales
 - Cálculo automático de distribución de propinas
