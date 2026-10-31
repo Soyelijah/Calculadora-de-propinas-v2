@@ -45,8 +45,10 @@ export class CalculadoraPropinaService {
    * 1. Transbank = montoTotal * (porcentajeTransbank / 100)
    * 2. Subtotal = montoTotal - Transbank
    * 3. Cocina = subtotal * (porcentajeCocina / 100)
-   * 4. Cada garzón recibe: subtotal * (porcentaje / 100)
-   * 5. Remanente no asignado = Fondo Garzones - sumaMontosGarzones
+   * 4. Fondo Garzones = subtotal - Cocina
+   * 5. Cada garzón recibe su porcentaje directo del fondo remanente:
+   *    monto = fondoGarzonesDisponible * (porcentaje / 100)
+   * 6. Remanente no asignado = Fondo Garzones - sumaMontosGarzones
    */
   public calcular(params: CalculoParametros): Propina {
     const {
@@ -73,9 +75,7 @@ export class CalculadoraPropinaService {
     // Sistema de puntos: cada 100% equivale a 1.0 punto (75% = 0.75 pt, 50% = 0.5 pt)
     const puntosTotalesGarzones = sumaGarzones / 100;
     const valorPorPunto =
-      modoDistribucion === 'proporcional_remanente' && puntosTotalesGarzones > 0
-        ? fondoGarzonesDisponible / puntosTotalesGarzones
-        : 0;
+      puntosTotalesGarzones > 0 ? fondoGarzonesDisponible / puntosTotalesGarzones : 0;
 
     const montosPorGarzon: Record<string, number> = {};
     let montoRemanenteNoAsignado = 0;
@@ -91,22 +91,24 @@ export class CalculadoraPropinaService {
       }
       montoRemanenteNoAsignado = 0;
     } else {
-      // Modo porcentaje directo del subtotal
-      const porcentajeMaximoGarzones = 100 - porcentajeCocina;
-      if (sumaGarzones > porcentajeMaximoGarzones) {
+      // Modo porcentaje directo sobre el fondo disponible post-cocina (100% = 1 pt)
+      if (sumaGarzones > 100) {
         throw new PorcentajesInvalidosError(
-          `La suma de garzones (${sumaGarzones.toFixed(1)}%) supera el remanente disponible post-cocina (${porcentajeMaximoGarzones.toFixed(1)}%)`
+          `La suma de garzones (${sumaGarzones.toFixed(1)}%) supera el 100% del fondo disponible post-cocina`
         );
       }
 
       let sumaMontosGarzones = 0;
       for (const [nombre, porcentaje] of Object.entries(porcentajesGarzones)) {
-        const montoG = subtotal * (porcentaje / 100);
+        const montoG = Math.round(fondoGarzonesDisponible * (porcentaje / 100) * 100) / 100;
         montosPorGarzon[nombre] = montoG;
         sumaMontosGarzones += montoG;
       }
 
-      montoRemanenteNoAsignado = Math.max(0, fondoGarzonesDisponible - sumaMontosGarzones);
+      montoRemanenteNoAsignado = Math.max(
+        0,
+        Math.round((fondoGarzonesDisponible - sumaMontosGarzones) * 100) / 100
+      );
     }
 
     const propina: Propina = {
@@ -252,4 +254,22 @@ export class CalculadoraPropinaService {
 
     return Math.abs(totalDistribuido - propina.montoTotal) < 0.1;
   }
+}
+
+/**
+ * Formatea el valor de ponderación o porcentaje a formato de puntos de garzón.
+ * Regla: Cada 100% equivale a 1 pt.
+ * Ejemplos:
+ * - 30% -> "0.30 pt"
+ * - 70% -> "0.70 pt"
+ * - 100% -> "1 pt"
+ * - Si es entero: "N pt"
+ * - Si es decimal: "0.XX pt"
+ */
+export function formatPuntos(porcentaje: number): string {
+  const pts = Math.round((porcentaje / 100) * 1000) / 1000;
+  if (Math.abs(pts - Math.round(pts)) < 0.0001) {
+    return `${Math.round(pts)} pt`;
+  }
+  return `${pts.toFixed(2)} pt`;
 }

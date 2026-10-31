@@ -2,6 +2,11 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { TipSummary } from '../components/TipSummary';
+import { ReportePDFMesModal } from '../components/ReportePDFMesModal';
+import {
+  obtenerPropinasMesActual,
+  generarReportePDFMesActual,
+} from '../services/pdfReportService';
 import {
   History,
   Download,
@@ -11,16 +16,30 @@ import {
   Table as TableIcon,
   X,
   Trash2,
+  FileText,
 } from 'lucide-react';
 
 export const HistorialScreen: React.FC = () => {
-  const { propinas, eliminarPropina, exportarCSV } = useApp();
+  const {
+    propinas,
+    eliminarPropina,
+    exportarCSV,
+    abrirModalBloqueo,
+    showNotification,
+  } = useApp();
   const { usuarioActual } = useAuth();
 
   const [searchGarzon, setSearchGarzon] = useState('');
   const [desdeFecha, setDesdeFecha] = useState('');
   const [hastaFecha, setHastaFecha] = useState('');
   const [vistaModo, setVistaModo] = useState<'cards' | 'table'>('cards');
+  const [modalPDFAbierto, setModalPDFAbierto] = useState(false);
+
+  // Propinas del mes actual para el reporte PDF del administrador
+  const { propinasMes, nombreMes, anio } = useMemo(() => {
+    return obtenerPropinasMesActual(propinas);
+  }, [propinas]);
+
 
   const filteredPropinas = useMemo(() => {
     return propinas.filter((propina) => {
@@ -33,17 +52,17 @@ export const HistorialScreen: React.FC = () => {
         if (!tieneGarzon) return false;
       }
 
-      // 2. Date filters
+      // 2. Date filters (usando fecha local para evitar desfases de zona horaria UTC)
       const propinaDate = new Date(propina.fecha);
       if (desdeFecha) {
-        const from = new Date(desdeFecha);
-        from.setHours(0, 0, 0, 0);
+        const [y, m, d] = desdeFecha.split('-').map(Number);
+        const from = new Date(y, m - 1, d, 0, 0, 0, 0);
         if (propinaDate < from) return false;
       }
 
       if (hastaFecha) {
-        const to = new Date(hastaFecha);
-        to.setHours(23, 59, 59, 999);
+        const [y, m, d] = hastaFecha.split('-').map(Number);
+        const to = new Date(y, m - 1, d, 23, 59, 59, 999);
         if (propinaDate > to) return false;
       }
 
@@ -60,7 +79,32 @@ export const HistorialScreen: React.FC = () => {
   const hayFiltros = searchGarzon !== '' || desdeFecha !== '' || hastaFecha !== '';
   const puedeEliminar = usuarioActual?.rol === 'admin';
 
+  const handleAbrirReportePDF = () => {
+    if (usuarioActual?.rol !== 'admin') {
+      abrirModalBloqueo('Exportar Reportes PDF', 'historial');
+      return;
+    }
+    setModalPDFAbierto(true);
+  };
+
+  const handleDescargarPDFDirecto = () => {
+    if (usuarioActual?.rol !== 'admin') {
+      abrirModalBloqueo('Exportar Reportes PDF', 'historial');
+      return;
+    }
+    if (propinasMes.length === 0) {
+      showNotification(`No hay registros de propinas en ${nombreMes} ${anio} para exportar`, 'info');
+      return;
+    }
+    generarReportePDFMesActual(propinasMes, {
+      adminNombre: usuarioActual?.nombre || 'Administrador',
+      descargarDirecto: true,
+    });
+    showNotification(`Reporte PDF de ${nombreMes} ${anio} descargado`, 'success');
+  };
+
   return (
+
     <div className="space-y-5">
       {/* Top Toolbar */}
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 sm:p-5 shadow-xs space-y-4">
@@ -106,10 +150,35 @@ export const HistorialScreen: React.FC = () => {
               onClick={exportarCSV}
               disabled={propinas.length === 0}
               className="flex items-center gap-1.5 py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+              title="Exportar todos los registros filtrados a formato CSV"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Exportar CSV</span>
+              <span className="hidden sm:inline">Exportar CSV</span>
+              <span className="sm:hidden">CSV</span>
             </button>
+
+            {/* Export PDF Button (Mes Actual) */}
+            <div className="flex items-center">
+              <button
+                onClick={handleAbrirReportePDF}
+                className="flex items-center gap-1.5 py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-l-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                title={`Ver, imprimir o descargar reporte en PDF de ${nombreMes} ${anio}`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>PDF {nombreMes}</span>
+                <span className="ml-1 px-1.5 py-0.2 bg-blue-500/60 text-white rounded-full text-[10px] font-bold">
+                  {propinasMes.length}
+                </span>
+              </button>
+              <button
+                onClick={handleDescargarPDFDirecto}
+                disabled={propinasMes.length === 0}
+                className="p-1.5 bg-blue-700 hover:bg-blue-800 disabled:opacity-40 text-white rounded-r-lg border-l border-blue-500 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                title="Descarga directa inmediata del archivo PDF del mes actual"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -254,6 +323,16 @@ export const HistorialScreen: React.FC = () => {
           </table>
         </div>
       )}
+
+      {/* Modal para Visualizar / Descargar / Imprimir Reporte Mensual PDF */}
+      <ReportePDFMesModal
+        isOpen={modalPDFAbierto}
+        onClose={() => setModalPDFAbierto(false)}
+        propinasMes={propinasMes}
+        adminNombre={usuarioActual?.nombre || 'Administrador'}
+      />
     </div>
   );
 };
+
+

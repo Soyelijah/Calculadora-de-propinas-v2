@@ -89,7 +89,7 @@ export const LoginScreen: React.FC = () => {
             Iniciar Sesión
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Ingrese sus credenciales para acceder a funciones administrativas
+            Inicie sesión con sus credenciales para acceder a la calculadora de propinas y al sistema
           </p>
         </div>
 

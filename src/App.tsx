@@ -11,6 +11,8 @@ import { ConfiguracionScreen } from './screens/ConfiguracionScreen';
 import { BackupScreen } from './screens/BackupScreen';
 import { CambiarContrasenaScreen } from './screens/CambiarContrasenaScreen';
 import { GarzonDetailScreen } from './screens/GarzonDetailScreen';
+import { ModalAccesoBloqueado } from './components/ModalAccesoBloqueado';
+import { AccesoRestringidoScreen } from './screens/AccesoRestringidoScreen';
 import { CheckCircle2, AlertCircle, Info, Clock } from 'lucide-react';
 
 const ScreenRenderer: React.FC = () => {
@@ -26,10 +28,22 @@ const ScreenRenderer: React.FC = () => {
     cerrarSesion,
   } = useAuth();
 
+  const esAdmin = sesionActiva && usuarioActual?.rol === 'admin';
+  const adminScreens = ['gestionar-garzones', 'configuracion', 'backup'];
+  const esPantallaAdminBloqueada = adminScreens.includes(currentScreen) && !esAdmin;
+
   // Route Guard Enforcement
   useEffect(() => {
-    // 1. If password reset is required, force user to password change screen
-    if (sesionActiva && usuarioActual?.debeCambiarContrasena && currentScreen !== 'cambiar-contrasena') {
+    // 1. Mandatory Login Guard: The tip calculator and system cannot be viewed or used without logging in first
+    if (!sesionActiva) {
+      if (currentScreen !== 'login') {
+        setCurrentScreen('login');
+      }
+      return;
+    }
+
+    // 2. If password reset is required, force user to password change screen
+    if (usuarioActual?.debeCambiarContrasena && currentScreen !== 'cambiar-contrasena') {
       if (currentScreen === 'login') {
         cerrarSesion('Regreso a pantalla de login');
         return;
@@ -38,26 +52,7 @@ const ScreenRenderer: React.FC = () => {
       setCurrentScreen('cambiar-contrasena');
       return;
     }
-
-    // 2. Admin-only screens guard
-    const adminScreens = ['gestionar-garzones', 'configuracion', 'backup'];
-    if (adminScreens.includes(currentScreen)) {
-      if (!sesionActiva) {
-        showNotification('Debe iniciar sesión como Administrador para acceder', 'error');
-        setCurrentScreen('login');
-      } else if (usuarioActual?.rol !== 'admin') {
-        showNotification('Acceso denegado: requiere privilegios de Administrador', 'error');
-        setCurrentScreen('home');
-      }
-    }
-
-    // 3. Authenticated-only screens guard
-    const authScreens = ['cambiar-contrasena'];
-    if (authScreens.includes(currentScreen) && !sesionActiva) {
-      showNotification('Debe iniciar sesión para acceder a esta pantalla', 'error');
-      setCurrentScreen('login');
-    }
-  }, [currentScreen, sesionActiva, usuarioActual, setCurrentScreen, showNotification]);
+  }, [currentScreen, sesionActiva, usuarioActual, setCurrentScreen, showNotification, cerrarSesion]);
 
   const segundosAviso = motivoExpiracion === 'inactividad' ? tiempoInactividadRestante : tiempoMaximoRestante;
 
@@ -131,17 +126,36 @@ const ScreenRenderer: React.FC = () => {
         </div>
       )}
 
+      {/* Modal de Acceso Bloqueado para Garzones */}
+      <ModalAccesoBloqueado />
+
       {/* Main Screen Container */}
       <main className="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6">
-        {currentScreen === 'home' && <HomeScreen />}
-        {currentScreen === 'login' && <LoginScreen />}
-        {currentScreen === 'gestionar-garzones' && <GestionarGarzonesScreen />}
-        {currentScreen === 'historial' && <HistorialScreen />}
-        {currentScreen === 'estadisticas' && <EstadisticasScreen />}
-        {currentScreen === 'configuracion' && <ConfiguracionScreen />}
-        {currentScreen === 'backup' && <BackupScreen />}
-        {currentScreen === 'cambiar-contrasena' && <CambiarContrasenaScreen />}
-        {currentScreen === 'garzon-detail' && <GarzonDetailScreen />}
+        {!sesionActiva ? (
+          <LoginScreen />
+        ) : esPantallaAdminBloqueada ? (
+          <AccesoRestringidoScreen
+            nombreSeccion={
+              currentScreen === 'gestionar-garzones'
+                ? 'Gestión de Garzones'
+                : currentScreen === 'configuracion'
+                ? 'Configuración del Sistema'
+                : 'Gestión de Backup y Restauración'
+            }
+          />
+        ) : (
+          <>
+            {currentScreen === 'home' && <HomeScreen />}
+            {currentScreen === 'login' && <LoginScreen />}
+            {currentScreen === 'gestionar-garzones' && <GestionarGarzonesScreen />}
+            {currentScreen === 'historial' && <HistorialScreen />}
+            {currentScreen === 'estadisticas' && <EstadisticasScreen />}
+            {currentScreen === 'configuracion' && <ConfiguracionScreen />}
+            {currentScreen === 'backup' && <BackupScreen />}
+            {currentScreen === 'cambiar-contrasena' && <CambiarContrasenaScreen />}
+            {currentScreen === 'garzon-detail' && <GarzonDetailScreen />}
+          </>
+        )}
       </main>
 
       {/* Clean minimal footer */}

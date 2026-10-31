@@ -395,4 +395,66 @@ describe('AuthContext - Pruebas Unitarias Exhaustivas', () => {
       expect(result.current.usuarioActual).toBeNull();
     });
   });
+
+  describe('4. Control de Acceso y Prevención de Parpadeo (Modal de Opciones Bloqueadas)', () => {
+    it('debe interceptar el acceso a opciones de administrador para garzones y abrir modalBloqueo sin cambiar pantalla', () => {
+      const { result } = renderHook(() => useApp(), {
+        wrapper: ({ children }) => <AppProvider>{children}</AppProvider>,
+      });
+
+      expect(result.current.currentScreen).toBe('home');
+      expect(result.current.modalBloqueo).toBeNull();
+
+      // Un garzón (o no admin) intenta acceder a 'configuracion'
+      act(() => {
+        result.current.navegarSiEsAdmin('configuracion', 'Configuración del Sistema', false);
+      });
+
+      // La pantalla NO debe cambiar bruscamente a configuracion
+      expect(result.current.currentScreen).toBe('home');
+      // Debe abrirse el modal informativo con el nombre de la opcion
+      expect(result.current.modalBloqueo).not.toBeNull();
+      expect(result.current.modalBloqueo?.isOpen).toBe(true);
+      expect(result.current.modalBloqueo?.nombreOpcion).toBe('Configuración del Sistema');
+
+      // Cerrar el modal
+      act(() => {
+        result.current.cerrarModalBloqueo();
+      });
+      expect(result.current.modalBloqueo).toBeNull();
+    });
+
+    it('debe permitir navegar normalmente si el usuario cuenta con rol de Administrador', () => {
+      const { result } = renderHook(() => useApp(), {
+        wrapper: ({ children }) => <AppProvider>{children}</AppProvider>,
+      });
+
+      act(() => {
+        result.current.navegarSiEsAdmin('configuracion', 'Configuración del Sistema', true);
+      });
+
+      expect(result.current.currentScreen).toBe('configuracion');
+      expect(result.current.modalBloqueo).toBeNull();
+    });
+
+    it('debe permitir agregar múltiples garzones con 100% según el sistema de puntos sin bloquear por suma > 100', () => {
+      const { result } = renderHook(() => useApp(), {
+        wrapper: ({ children }) => <AppProvider>{children}</AppProvider>,
+      });
+
+      // Agregar dos garzones nuevos al 100% cada uno (1 pt cada uno)
+      act(() => {
+        const res1 = result.current.agregarGarzon({ nombre: 'Garzon Test 1', porcentaje: 100 });
+        expect(res1.success).toBe(true);
+      });
+
+      act(() => {
+        const res2 = result.current.agregarGarzon({ nombre: 'Garzon Test 2', porcentaje: 100 });
+        expect(res2.success).toBe(true);
+      });
+
+      // El cálculo de puntos totales debe reflejar los puntos acumulados
+      expect(result.current.puntosTotalesGarzones).toBeGreaterThan(1);
+    });
+  });
 });

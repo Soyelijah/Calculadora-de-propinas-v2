@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { Garzon } from '../types';
+import { formatPuntos } from '../services/calculadoraService';
 import {
   Users,
   Plus,
@@ -18,7 +19,6 @@ export const GestionarGarzonesScreen: React.FC = () => {
   const {
     garzones,
     porcentajeTotalGarzones,
-    esPorcentajeValido,
     agregarGarzon,
     actualizarGarzon,
     eliminarGarzon,
@@ -123,49 +123,26 @@ export const GestionarGarzonesScreen: React.FC = () => {
 
   return (
     <div className="space-y-5">
-      {/* Top Banner with Total Percentage */}
-      <div
-        className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-          !esPorcentajeValido
-            ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/50 text-rose-800 dark:text-rose-200'
-            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 shadow-xs'
-        }`}
-      >
+      {/* Top Banner with Total Points */}
+      <div className="p-4 rounded-xl border bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div
-            className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-              !esPorcentajeValido
-                ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/60 dark:text-rose-300'
-                : 'bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400'
-            }`}
-          >
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400">
             <Users className="w-5 h-5" />
           </div>
           <div>
             <h2 className="font-bold text-base">
-              Porcentaje Total:{' '}
-              <span
-                className={
-                  !esPorcentajeValido
-                    ? 'text-rose-600 dark:text-rose-400 font-extrabold'
-                    : 'text-blue-600 dark:text-blue-400 font-extrabold'
-                }
-              >
-                {porcentajeTotalGarzones.toFixed(1)}%
+              Puntos Totales de Garzones:{' '}
+              <span className="text-blue-600 dark:text-blue-400 font-extrabold">
+                {formatPuntos(porcentajeTotalGarzones)}
               </span>{' '}
-              / 100%
+              <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+                ({porcentajeTotalGarzones.toFixed(1)}%)
+              </span>
             </h2>
-            {!esPorcentajeValido ? (
-              <p className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1 mt-0.5">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                <span>¡Error! El porcentaje total excede el 100%</span>
-              </p>
-            ) : (
-              <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
-                <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-                <span>Suma de porcentajes en rango válido</span>
-              </p>
-            )}
+            <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+              <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+              <span>100% = 1 pt &bull; 75% = 0.75 pt &bull; 50% = 0.50 pt &bull; 30% = 0.30 pt</span>
+            </p>
           </div>
         </div>
 
@@ -219,7 +196,7 @@ export const GestionarGarzonesScreen: React.FC = () => {
                       <Eye className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </h4>
                     <span className="inline-block text-xs font-semibold px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 mt-0.5">
-                      Porcentaje: {garzon.porcentaje.toFixed(1)}%
+                      Porcentaje: {garzon.porcentaje.toFixed(1)}% ({formatPuntos(garzon.porcentaje)})
                     </span>
                   </div>
                 </div>
@@ -294,20 +271,35 @@ export const GestionarGarzonesScreen: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Porcentaje (%)
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="100"
-                  value={porcentajeInput}
-                  onChange={(e) => setPorcentajeInput(e.target.value)}
-                  placeholder="Ej. 25"
-                  required
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                />
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Ponderación / Puntos
+                  </label>
+                  <span className="text-[11px] font-mono font-bold text-blue-600 dark:text-blue-400">
+                    {porcentajeInput && !isNaN(parseFloat(porcentajeInput))
+                      ? formatPuntos(parseFloat(porcentajeInput))
+                      : '0 pt'}
+                  </span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    value={porcentajeInput}
+                    onChange={(e) => setPorcentajeInput(e.target.value)}
+                    placeholder="100 = 1.0 pt, 75 = 0.75 pt, 50 = 0.5 pt"
+                    required
+                    className="w-full pl-3 pr-10 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                  <span className="absolute inset-y-0 right-0 flex items-center pr-3 text-xs text-slate-400 font-semibold">
+                    %
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-400 mt-1 block">
+                  100% = 1 pt completo &bull; 75% = 0.75 pt &bull; 50% = 0.5 pt
+                </span>
               </div>
 
               {formError && (

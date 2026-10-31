@@ -1,6 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Configuracion, Garzon, Propina, ScreenType, ThemeMode } from '../types';
 import { StorageService } from '../services/storageService';
+import { formatPuntos } from '../services/calculadoraService';
+
+export interface ModalBloqueoState {
+  isOpen: boolean;
+  nombreOpcion: string;
+  pantallaDestino?: ScreenType;
+}
 
 interface AppContextType {
   // Navigation
@@ -8,6 +15,12 @@ interface AppContextType {
   setCurrentScreen: (screen: ScreenType) => void;
   selectedGarzonName: string | null;
   setSelectedGarzonName: (name: string | null) => void;
+
+  // Bloqueo / Control de Acceso para Garzones
+  modalBloqueo: ModalBloqueoState | null;
+  abrirModalBloqueo: (nombreOpcion: string, pantallaDestino?: ScreenType) => void;
+  cerrarModalBloqueo: () => void;
+  navegarSiEsAdmin: (pantalla: ScreenType, nombreOpcion: string, esAdmin: boolean) => void;
 
   // Configuration
   configuracion: Configuracion;
@@ -18,6 +31,7 @@ interface AppContextType {
   // Garzones
   garzones: Garzon[];
   porcentajeTotalGarzones: number;
+  puntosTotalesGarzones: number;
   esPorcentajeValido: boolean;
   agregarGarzon: (garzon: Garzon) => { success: boolean; error?: string };
   actualizarGarzon: (nombreAntiguo: string, garzon: Garzon) => { success: boolean; error?: string };
@@ -44,6 +58,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
   const [selectedGarzonName, setSelectedGarzonName] = useState<string | null>(null);
 
+  // Modal para opciones bloqueadas a garzones / usuarios no admin
+  const [modalBloqueo, setModalBloqueo] = useState<ModalBloqueoState | null>(null);
+
   const [configuracion, setConfiguracion] = useState<Configuracion>(() =>
     storageService.getConfiguracion()
   );
@@ -64,6 +81,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }, 3500);
     },
     []
+  );
+
+  const abrirModalBloqueo = useCallback((nombreOpcion: string, pantallaDestino?: ScreenType) => {
+    setModalBloqueo({
+      isOpen: true,
+      nombreOpcion,
+      pantallaDestino,
+    });
+  }, []);
+
+  const cerrarModalBloqueo = useCallback(() => {
+    setModalBloqueo(null);
+  }, []);
+
+  const navegarSiEsAdmin = useCallback(
+    (pantalla: ScreenType, nombreOpcion: string, esAdmin: boolean) => {
+      if (!esAdmin) {
+        abrirModalBloqueo(nombreOpcion, pantalla);
+        return;
+      }
+      setCurrentScreen(pantalla);
+    },
+    [abrirModalBloqueo]
   );
 
   // Sync theme mode with document
@@ -102,32 +142,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Garzones operations
+  // Cada 100% de cada garzón equivale a 1.0 punto (75% = 0.75 pt, 50% = 0.5 pt).
+  // La suma de puntos totales no tiene un límite forzado de 100% en modo proporcional.
   const porcentajeTotalGarzones = garzones.reduce((sum, g) => sum + g.porcentaje, 0);
-  const esPorcentajeValido = porcentajeTotalGarzones <= 100.0;
+  const puntosTotalesGarzones = porcentajeTotalGarzones / 100;
+  // Es válido si todos los garzones tienen porcentajes no negativos y <= 100% (1 pt cada uno)
+  const esPorcentajeValido = garzones.every((g) => g.porcentaje >= 0 && g.porcentaje <= 100.0);
 
   const agregarGarzon = (nuevo: Garzon): { success: boolean; error?: string } => {
     if (!nuevo.nombre.trim()) {
       return { success: false, error: 'El nombre no puede estar vacío' };
     }
     if (nuevo.porcentaje < 0) {
-      return { success: false, error: 'El porcentaje no puede ser negativo' };
+      return { success: false, error: 'La ponderación no puede ser negativa' };
+    }
+    if (nuevo.porcentaje > 100) {
+      return {
+        success: false,
+        error: 'La ponderación por garzón no puede superar el 100% (1.0 punto)',
+      };
     }
     if (garzones.some((g) => g.nombre.toLowerCase() === nuevo.nombre.trim().toLowerCase())) {
       return { success: false, error: 'Ya existe un garzón con este nombre' };
     }
 
-    const nuevosGarzones = [...garzones, { nombre: nuevo.nombre.trim(), porcentaje: nuevo.porcentaje }];
-    const nuevoTotal = nuevosGarzones.reduce((sum, g) => sum + g.porcentaje, 0);
-
-    if (nuevoTotal > 100.0) {
-      return { success: false, error: '¡Error! El porcentaje total excede el 100%' };
-    }
+    const nuevosGarzones = [
+      ...garzones,
+      { nombre: nuevo.nombre.trim(), porcentaje: nuevo.porcentaje },
+    ];
 
     storageService.guardarGarzones(nuevosGarzones);
     setGarzones(nuevosGarzones);
     storageService.registrarAuditoria(
       'gestionGarzon',
-      `Garzón agregado: ${nuevo.nombre} (${nuevo.porcentaje}%)`
+      `Garzón agregado: ${nuevo.nombre} (${nuevo.porcentaje}% / ${formatPuntos(nuevo.porcentaje)})`
     );
     showNotification('Garzón agregado correctamente', 'success');
     return { success: true };
@@ -141,23 +189,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: 'El nombre no puede estar vacío' };
     }
     if (garzonActualizado.porcentaje < 0) {
-      return { success: false, error: 'El porcentaje no puede ser negativo' };
+      return { success: false, error: 'La ponderación no puede ser negativa' };
+    }
+    if (garzonActualizado.porcentaje > 100) {
+      return {
+        success: false,
+        error: 'La ponderación por garzón no puede superar el 100% (1.0 punto)',
+      };
+    }
+
+    // Si cambió el nombre, validar duplicados
+    if (
+      nombreAntiguo.toLowerCase() !== garzonActualizado.nombre.trim().toLowerCase() &&
+      garzones.some((g) => g.nombre.toLowerCase() === garzonActualizado.nombre.trim().toLowerCase())
+    ) {
+      return { success: false, error: 'Ya existe otro garzón con este nombre' };
     }
 
     const nuevosGarzones = garzones.map((g) =>
-      g.nombre === nombreAntiguo ? { ...garzonActualizado, nombre: garzonActualizado.nombre.trim() } : g
+      g.nombre === nombreAntiguo
+        ? { ...garzonActualizado, nombre: garzonActualizado.nombre.trim() }
+        : g
     );
-
-    const nuevoTotal = nuevosGarzones.reduce((sum, g) => sum + g.porcentaje, 0);
-    if (nuevoTotal > 100.0) {
-      return { success: false, error: '¡Error! El porcentaje total excede el 100%' };
-    }
 
     storageService.guardarGarzones(nuevosGarzones);
     setGarzones(nuevosGarzones);
     storageService.registrarAuditoria(
       'gestionGarzon',
-      `Garzón actualizado: ${garzonActualizado.nombre} (${garzonActualizado.porcentaje}%)`
+      `Garzón actualizado: ${garzonActualizado.nombre} (${garzonActualizado.porcentaje}% / ${formatPuntos(garzonActualizado.porcentaje)})`
     );
     showNotification('Garzón actualizado correctamente', 'success');
     return { success: true };
@@ -194,7 +253,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const exportarCSV = () => {
     const csvContent = storageService.generarCSV();
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    // Prepend UTF-8 BOM (\uFEFF) to guarantee Excel/Sheets renders accents and Chilean currency accurately
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -213,12 +273,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrentScreen,
         selectedGarzonName,
         setSelectedGarzonName,
+        modalBloqueo,
+        abrirModalBloqueo,
+        cerrarModalBloqueo,
+        navegarSiEsAdmin,
         configuracion,
         guardarConfiguracion,
         restaurarValoresPredeterminados,
         setThemeMode,
         garzones,
         porcentajeTotalGarzones,
+        puntosTotalesGarzones,
         esPorcentajeValido,
         agregarGarzon,
         actualizarGarzon,

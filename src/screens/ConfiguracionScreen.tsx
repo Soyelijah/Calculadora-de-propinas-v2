@@ -191,10 +191,10 @@ export const ConfiguracionScreen: React.FC = () => {
                 />
                 <div className="text-xs">
                   <div className="font-semibold text-slate-800 dark:text-slate-200">
-                    Porcentaje Directo del Subtotal
+                    Porcentaje Directo del Fondo Post-Cocina
                   </div>
                   <div className="text-slate-500 dark:text-slate-400 mt-0.5">
-                    Cada garzón recibe exactamente el % indicado sobre el subtotal. Si la suma no alcanza el remanente, el sobrante se contabiliza explícitamente.
+                    Cada garzón recibe exactamente su porcentaje o puntos asignados directamente del fondo remanente post-cocina (100% = 1 pt).
                   </div>
                 </div>
               </label>

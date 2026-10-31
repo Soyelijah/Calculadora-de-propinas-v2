@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { InfoSesionWidget } from '../components/InfoSesionWidget';
-import { CalculadoraPropinaService } from '../services/calculadoraService';
+import { CalculadoraPropinaService, formatPuntos } from '../services/calculadoraService';
 import { Propina, ModoDistribucion, DetalleDistribucion } from '../types';
 import {
   Calculator,
@@ -26,6 +26,7 @@ export const HomeScreen: React.FC = () => {
     guardarPropina,
     setCurrentScreen,
     showNotification,
+    navegarSiEsAdmin,
   } = useApp();
   const { usuarioActual, sesionActiva } = useAuth();
 
@@ -142,10 +143,6 @@ export const HomeScreen: React.FC = () => {
     (acc, v) => acc + (parseFloat(v) || 0),
     0
   );
-  const sumaTotalGlobal =
-    (parseFloat(transbankInput) || 0) +
-    (parseFloat(cocinaInput) || 0) +
-    sumaPorcentajesGarzones;
 
   const esAdmin = sesionActiva && usuarioActual?.rol === 'admin';
 
@@ -269,14 +266,14 @@ export const HomeScreen: React.FC = () => {
               </span>
               <span
                 className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                  modoDistribucion === 'porcentaje_directo' && sumaTotalGlobal > 100
+                  modoDistribucion === 'porcentaje_directo' && sumaPorcentajesGarzones > 100
                     ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 font-bold'
                     : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
                 }`}
               >
                 {modoDistribucion === 'proporcional_remanente'
-                  ? `Suma de ponderaciones: ${sumaPorcentajesGarzones.toFixed(1)} pts`
-                  : `Suma total: ${sumaTotalGlobal.toFixed(1)}% / 100%`}
+                  ? `Suma de ponderaciones: ${formatPuntos(sumaPorcentajesGarzones)}`
+                  : `Suma garzones: ${sumaPorcentajesGarzones.toFixed(1)}% / 100% (${formatPuntos(sumaPorcentajesGarzones)})`}
               </span>
             </div>
 
@@ -285,8 +282,10 @@ export const HomeScreen: React.FC = () => {
                 <span>No hay garzones configurados. Agregue garzones para calcular.</span>
                 <button
                   type="button"
-                  onClick={() => setCurrentScreen('gestionar-garzones')}
-                  className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-xs font-medium"
+                  onClick={() =>
+                    navegarSiEsAdmin('gestionar-garzones', 'Gestionar Garzones', esAdmin)
+                  }
+                  className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-xs font-medium cursor-pointer"
                 >
                   Ir a Garzones
                 </button>
@@ -423,9 +422,8 @@ export const HomeScreen: React.FC = () => {
                         <User className="w-3 h-3 text-slate-400" />
                         <span>{g.nombre}</span>
                       </td>
-                      <td className="px-3 py-2.5 text-center text-slate-600 dark:text-slate-300">
-                        {g.porcentajeConfigurado.toFixed(1)}
-                        {modoDistribucion === 'proporcional_remanente' ? ' pts' : '%'}
+                      <td className="px-3 py-2.5 text-center text-slate-600 dark:text-slate-300 font-medium">
+                        {formatPuntos(g.porcentajeConfigurado)}
                       </td>
                       <td className="px-3 py-2.5 text-center text-slate-500 dark:text-slate-400 font-mono">
                         {g.porcentajeEfectivoDelTotal.toFixed(2)}%
@@ -480,12 +478,15 @@ export const HomeScreen: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setCurrentScreen('gestionar-garzones')}
-            className="flex flex-col items-center justify-center p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 transition-colors text-xs font-medium gap-1.5 relative"
+            onClick={() =>
+              navegarSiEsAdmin('gestionar-garzones', 'Gestionar Garzones', esAdmin)
+            }
+            className="flex flex-col items-center justify-center p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 transition-colors text-xs font-medium gap-1.5 relative cursor-pointer"
+            title={esAdmin ? 'Gestionar Garzones' : 'Gestionar Garzones (Exclusivo Administradores)'}
           >
             {!esAdmin && (
-              <span title="Requiere rol de Administrador" className="absolute top-2 right-2">
-                <Lock className="w-3 h-3 text-slate-400" />
+              <span className="absolute top-2 right-2 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 p-0.5 rounded">
+                <Lock className="w-3 h-3" />
               </span>
             )}
             <Users className="w-5 h-5 text-amber-600 dark:text-amber-400" />
@@ -493,12 +494,15 @@ export const HomeScreen: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setCurrentScreen('configuracion')}
-            className="flex flex-col items-center justify-center p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 transition-colors text-xs font-medium gap-1.5 relative"
+            onClick={() =>
+              navegarSiEsAdmin('configuracion', 'Configuración del Sistema', esAdmin)
+            }
+            className="flex flex-col items-center justify-center p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 transition-colors text-xs font-medium gap-1.5 relative cursor-pointer"
+            title={esAdmin ? 'Configuración' : 'Configuración (Exclusivo Administradores)'}
           >
             {!esAdmin && (
-              <span title="Requiere rol de Administrador" className="absolute top-2 right-2">
-                <Lock className="w-3 h-3 text-slate-400" />
+              <span className="absolute top-2 right-2 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 p-0.5 rounded">
+                <Lock className="w-3 h-3" />
               </span>
             )}
             <Settings className="w-5 h-5 text-slate-600 dark:text-slate-400" />
@@ -506,35 +510,28 @@ export const HomeScreen: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setCurrentScreen('backup')}
-            className="flex flex-col items-center justify-center p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 transition-colors text-xs font-medium gap-1.5 relative"
+            onClick={() =>
+              navegarSiEsAdmin('backup', 'Gestión de Backup y Restauración', esAdmin)
+            }
+            className="flex flex-col items-center justify-center p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 transition-colors text-xs font-medium gap-1.5 relative cursor-pointer"
+            title={esAdmin ? 'Gestión de Backup' : 'Gestión de Backup (Exclusivo Administradores)'}
           >
             {!esAdmin && (
-              <span title="Requiere rol de Administrador" className="absolute top-2 right-2">
-                <Lock className="w-3 h-3 text-slate-400" />
+              <span className="absolute top-2 right-2 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 p-0.5 rounded">
+                <Lock className="w-3 h-3" />
               </span>
             )}
             <Database className="w-5 h-5 text-purple-600 dark:text-purple-400" />
             <span>Gestión de Backup</span>
           </button>
 
-          {sesionActiva ? (
-            <button
-              onClick={() => setCurrentScreen('cambiar-contrasena')}
-              className="flex flex-col items-center justify-center p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 transition-colors text-xs font-medium gap-1.5"
-            >
-              <Receipt className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              <span>Cambiar Contraseña</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => setCurrentScreen('login')}
-              className="flex flex-col items-center justify-center p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 transition-colors text-xs font-medium gap-1.5"
-            >
-              <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              <span>Iniciar Sesión</span>
-            </button>
-          )}
+          <button
+            onClick={() => setCurrentScreen('cambiar-contrasena')}
+            className="flex flex-col items-center justify-center p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 transition-colors text-xs font-medium gap-1.5"
+          >
+            <Receipt className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+            <span>Cambiar Contraseña</span>
+          </button>
         </div>
       </div>
     </div>

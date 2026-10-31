@@ -1,9 +1,20 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { User, DollarSign, Calendar, Calculator, ArrowLeft } from 'lucide-react';
 
 export const GarzonDetailScreen: React.FC = () => {
   const { selectedGarzonName, propinas, garzones, setCurrentScreen } = useApp();
+  const { usuarioActual, sesionActiva } = useAuth();
+  const esAdmin = sesionActiva && usuarioActual?.rol === 'admin';
+
+  const handleVolver = () => {
+    if (esAdmin) {
+      setCurrentScreen('gestionar-garzones');
+    } else {
+      setCurrentScreen('estadisticas');
+    }
+  };
 
   const garzonConfig = garzones.find((g) => g.nombre === selectedGarzonName);
 
@@ -24,10 +35,10 @@ export const GarzonDetailScreen: React.FC = () => {
       <div className="text-center py-10">
         <p className="text-slate-500">No se ha seleccionado ningún garzón.</p>
         <button
-          onClick={() => setCurrentScreen('gestionar-garzones')}
-          className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs"
+          onClick={handleVolver}
+          className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold cursor-pointer"
         >
-          Volver a Garzones
+          {esAdmin ? 'Volver a Garzones' : 'Volver a Estadísticas'}
         </button>
       </div>
     );
@@ -55,11 +66,11 @@ export const GarzonDetailScreen: React.FC = () => {
           </div>
 
           <button
-            onClick={() => setCurrentScreen('gestionar-garzones')}
-            className="flex items-center gap-1.5 py-1.5 px-3 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-750"
+            onClick={handleVolver}
+            className="flex items-center gap-1.5 py-1.5 px-3 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Volver</span>
+            <span>{esAdmin ? 'Volver a Garzones' : 'Volver a Estadísticas'}</span>
           </button>
         </div>
 
